@@ -1,0 +1,4 @@
+# Excluded from the packaged .streamDeckPlugin — nothing here is needed at runtime.
+**/*.map
+logs/
+.DS_Store

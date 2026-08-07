@@ -1,0 +1,6 @@
+node_modules/
+.build/
+*.streamDeckPlugin
+com.alejo.claude-usage.sdPlugin/bin/
+com.alejo.claude-usage.sdPlugin/logs/
+.DS_Store
