@@ -27,11 +27,18 @@ There is no public endpoint that reports subscription limits, but every response
 Anthropic's Messages API carries them in headers:
 
 ```
-anthropic-ratelimit-unified-5h-utilization
-anthropic-ratelimit-unified-5h-reset
-anthropic-ratelimit-unified-7d-utilization
-anthropic-ratelimit-unified-7d-reset
+anthropic-ratelimit-unified-5h-utilization    0.14        fraction, not a percentage
+anthropic-ratelimit-unified-5h-reset          1786152600  unix seconds, not ISO-8601
+anthropic-ratelimit-unified-5h-status         allowed
+anthropic-ratelimit-unified-7d-utilization    0.9
+anthropic-ratelimit-unified-7d-reset          1786492800
+anthropic-ratelimit-unified-7d-status         allowed_warning
+anthropic-ratelimit-unified-representative-claim  seven_day
 ```
+
+Those are real observed values, not a guess at the format. The resets arrive as **unix
+seconds** — `parseReset` tries ISO-8601 first, gets `Invalid Date`, and falls through to
+the seconds branch, so the ISO path never actually fires in practice.
 
 So the plugin sends the smallest legal request it can (one character in, one token out),
 throws the completion away, and keeps the headers. It authenticates with the OAuth token
@@ -63,10 +70,39 @@ trade-off spelled out next to it.
 | --- | --- |
 | Two bars, `5H` and `7D` | Normal. Set the mode in the property inspector. |
 | A ring gauge | Single-window mode, set in the property inspector. |
-| `RESETS IN`, two countdowns | Temporary peek. Press the key; it reverts after a few seconds. |
+| `RESETS IN` + countdown | Temporary peek. Press the key; it reverts after four seconds. Shows only the window(s) the key itself shows. |
+| `FULL IN 8h` | Burn-rate projection: at the current pace this window fills before it resets. |
+| `+50% ENDS 12d` | The temporary weekly-limit boost expires soon. Weekly peek only. |
 | `SIGN IN` | No Claude Code credentials on this machine. Run `claude` once. |
 | `EXPIRED` | Credentials found but the token has aged out. Run `claude` to refresh it. |
 | `ERROR` | Network or API problem. Check the logs. |
+
+### Colour, and who decides it
+
+The warn/critical sliders in the property inspector are not the whole story. Every
+response also carries Anthropic's own view of each window — `allowed`, `allowed_warning`
+and so on — and the key takes **whichever of the two is more severe**. Your sliders can
+warn you earlier than Anthropic would; Anthropic can escalate a key your sliders would
+call fine. Neither source can make the key less alarming than the other thinks it should
+be.
+
+### The projection
+
+The store keeps recent readings and works out points-per-hour from the oldest and newest.
+If that pace fills the window *before* it resets, the peek says so. Two deliberate
+silences: it needs at least two minutes between readings, because closer samples give a
+slope that swings wildly on every tick; and a flat or falling rate produces nothing at
+all, since both windows are rolling and decay is the normal healthy case, not news.
+
+Because it needs history, nothing appears for the first couple of poll intervals after the
+plugin restarts.
+
+### The August 19 notice
+
+Anthropic is running a promotion that raises weekly limits by 50%, ending 2026-08-19.
+`src/lib/promo.ts` hardcodes that date because nothing in the API reports it. The notice
+appears on the weekly peek within 14 days of expiry, self-disables afterwards, and that
+whole file can be deleted once the date passes.
 
 Logs live in `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.alejo.claude-usage.sdPlugin/logs/`.
 A transient failure keeps the last good numbers on screen rather than blanking the key,
