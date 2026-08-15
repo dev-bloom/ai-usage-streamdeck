@@ -1,6 +1,6 @@
 /**
- * Generate the PNG assets for the Codex actions, and (despite the filename —
- * see below) the Sessions action too.
+ * Generate the PNG assets for the Codex actions, the Sessions action
+ * (despite the filename — see below), and the plugin's marketplace tile.
  *
  * `scripts/icons.py` drew the Claude assets with cairosvg, which is not
  * installed on this machine and never was. Chromium is, via Playwright (it
@@ -9,6 +9,15 @@
  * through a rasteriser. Colours, the ring-gauge geometry, and the 0.14
  * corner-radius ratio are copied from icons.py so the Codex assets sit in the
  * same visual family as the Claude ones already on disk.
+ *
+ * The marketplace tile (`imgs/plugin/marketplace`) is icons.py's original
+ * single-arc `gauge_svg` — a continuous 270-degree ring, 72% filled, coral
+ * over a grey track — rasterised here instead, since icons.py itself can
+ * never run. Its manifest slot requires exactly 256x256 and 512x512 (@2x);
+ * icons.py had hardcoded 288, which is off-spec. Parameters (pct 72, 0.14
+ * stroke ratio, 0.30 radius ratio, 0.14 corner ratio) were reverse-checked
+ * pixel-for-pixel against the previously-shipped 288px tile before porting,
+ * so the design is unchanged — only the dimensions and the code path are.
  *
  * The launch mark differs from Claude's on two independent axes — a double
  * chevron instead of a single chevron, teal instead of coral — and that pair
@@ -48,13 +57,16 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(here, "..", "com.devbloom.ai-usage.sdPlugin", "imgs", "actions");
+const IMGS_ROOT = join(here, "..", "com.devbloom.ai-usage.sdPlugin", "imgs");
+const ROOT = join(IMGS_ROOT, "actions");
+const PLUGIN_ROOT = join(IMGS_ROOT, "plugin");
 
 const BG = "#0d0d11";
 const TRACK = "#3a3a46";
 const TRACK_SMALL = "#6f6f7a";
 const TEAL = "#2dd4bf";
 const VIOLET = "#a78bfa";
+const CORAL = "#d97757";
 
 const rad = (deg) => (deg * Math.PI) / 180;
 
@@ -107,6 +119,34 @@ function meterSvg(size, { bg = null, strokeRatio, radiusRatio, track, fill }) {
   <path d="${trackArc.d}" fill="none" stroke="${track}" stroke-width="${stroke.toFixed(2)}" stroke-linecap="butt"/>
   <path d="${tealArc.d}" fill="none" stroke="${fill}" stroke-width="${stroke.toFixed(2)}" stroke-linecap="butt"/>
   <path d="${diamond}" fill="${fill}"/>
+</svg>`;
+}
+
+/**
+ * The Claude meter's original mark: a single continuous 270-degree ring,
+ * open at the bottom, filled to `pct` in coral over a grey track. Same arc
+ * math as `meterSvg` above, but one unbroken arc instead of two, matching
+ * icons.py's `gauge_svg`. This is what the marketplace tile uses — filled
+ * background, generous margins (radius ratio 0.30, vs. ~0.31-0.33 for the
+ * small/key marks) — so the tile reads as the same plugin identity used
+ * everywhere else, just larger.
+ */
+function gaugeSvg(size, { pct = 72, strokeRatio = 0.14, radiusRatio = 0.30, bg = BG, track = TRACK, fill = CORAL } = {}) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size * radiusRatio;
+  const stroke = size * strokeRatio;
+  const { d } = arcPath(cx, cy, r, 135, 270);
+  const length = (270 / 360) * 2 * Math.PI * r;
+  const filled = (length * pct) / 100;
+
+  const background = bg ? `<rect width="${size}" height="${size}" rx="${(size * 0.14).toFixed(1)}" fill="${bg}"/>` : "";
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="100%" height="100%">
+  ${background}
+  <path d="${d}" fill="none" stroke="${track}" stroke-width="${stroke.toFixed(2)}" stroke-linecap="round"/>
+  <path d="${d}" fill="none" stroke="${fill}" stroke-width="${stroke.toFixed(2)}" stroke-linecap="round"
+        stroke-dasharray="${filled.toFixed(2)} ${(length - filled + 1).toFixed(2)}"/>
 </svg>`;
 }
 
@@ -194,9 +234,9 @@ async function rasterize(page, svg, size, outPath) {
   console.log(`  ${outPath} (${size}px)`);
 }
 
-async function write(page, relPath, svgFor, size) {
-  const out1x = join(ROOT, `${relPath}.png`);
-  const out2x = join(ROOT, `${relPath}@2x.png`);
+async function write(page, root, relPath, svgFor, size) {
+  const out1x = join(root, `${relPath}.png`);
+  const out2x = join(root, `${relPath}@2x.png`);
   mkdirSync(dirname(out1x), { recursive: true });
   await rasterize(page, svgFor(size), size, out1x);
   await rasterize(page, svgFor(size * 2), size * 2, out2x);
@@ -208,7 +248,7 @@ const page = await browser.newPage({ deviceScaleFactor: 1 });
 // Action-list / category-sized icon: no background (transparent, so it sits
 // correctly on whatever chrome Stream Deck draws behind it), thin grey track,
 // same proportions icons.py used for the Claude meter's small icon.
-await write(page, "codex-meter/icon", (s) => meterSvg(s, {
+await write(page, ROOT, "codex-meter/icon", (s) => meterSvg(s, {
   strokeRatio: 0.19,
   radiusRatio: 0.31,
   track: TRACK_SMALL,
@@ -218,7 +258,7 @@ await write(page, "codex-meter/icon", (s) => meterSvg(s, {
 // Default key face, shown for the instant before the first render lands (and,
 // since renderKey overdraws the key face at runtime, the face most people
 // actually see day to day is this one and the 20px action-list icon above).
-await write(page, "codex-meter/key", (s) => meterSvg(s, {
+await write(page, ROOT, "codex-meter/key", (s) => meterSvg(s, {
   bg: BG,
   strokeRatio: 0.11,
   radiusRatio: 0.33,
@@ -226,15 +266,21 @@ await write(page, "codex-meter/key", (s) => meterSvg(s, {
   fill: TEAL,
 }), 72);
 
-await write(page, "codex-launch/icon", launchSvg, 20);
-await write(page, "codex-launch/key", launchSvg, 72);
+await write(page, ROOT, "codex-launch/icon", launchSvg, 20);
+await write(page, ROOT, "codex-launch/key", launchSvg, 72);
 
 // Sessions action-list icon: transparent, same convention as the meter
 // icons (it's a monitor, not a launcher, so it gets no background square).
-await write(page, "sessions/icon", (s) => sessionsSvg(s, { track: TRACK_SMALL }), 20);
+await write(page, ROOT, "sessions/icon", (s) => sessionsSvg(s, { track: TRACK_SMALL }), 20);
 
 // Sessions default key face: filled dark background like every other key.
-await write(page, "sessions/key", (s) => sessionsSvg(s, { bg: BG }), 72);
+await write(page, ROOT, "sessions/key", (s) => sessionsSvg(s, { bg: BG }), 72);
+
+// Marketplace tile: the manifest's `Icon` slot requires exactly 256x256 and
+// 512x512 (@2x) — icons.py hardcoded 288, which is off-spec and unusable for
+// submission. Same design (filled dark background, generous margins, the
+// single continuous 270-degree gauge at 72%), correct size.
+await write(page, PLUGIN_ROOT, "marketplace", (s) => gaugeSvg(s), 256);
 
 await browser.close();
 console.log("codex icons written");
