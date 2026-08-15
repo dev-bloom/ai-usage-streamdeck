@@ -4,6 +4,7 @@
   "description": "Stream Deck plugin showing Claude 5-hour and weekly usage",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "build": "rollup -c",
     "watch": "rollup -c -w --watch.onEnd=\"./scripts/reload.sh\"",
