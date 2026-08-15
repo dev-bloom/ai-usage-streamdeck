@@ -2,7 +2,7 @@ import commonjs from "@rollup/plugin-commonjs";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 
-const sdPlugin = "com.alejo.claude-usage.sdPlugin";
+const sdPlugin = "com.devbloom.ai-usage.sdPlugin";
 
 export default {
   input: "src/plugin.ts",

@@ -21,7 +21,7 @@ set -uo pipefail
 # fully restarted. Requiring "Plugins/" matched nothing in the second case, so
 # this script reported success and reloaded nothing — the same silent no-op it
 # exists to replace.
-PATTERN='com\.alejo\.claude-usage\.sdPlugin/bin/plugin\.js'
+PATTERN='com\.devbloom\.ai-usage\.sdPlugin/bin/plugin\.js'
 
 killed=0
 for pid in $(pgrep -f "$PATTERN" 2>/dev/null); do

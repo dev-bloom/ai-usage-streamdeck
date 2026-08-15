@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-UUID="com.alejo.claude-usage"
+UUID="com.devbloom.ai-usage"
 BUNDLE="${UUID}.sdPlugin"
 PLUGIN_DIR="$HOME/Library/Application Support/com.elgato.StreamDeck/Plugins"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

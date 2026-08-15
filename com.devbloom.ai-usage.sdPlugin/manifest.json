@@ -1,0 +1,114 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+  "Name": "AI Usage",
+  "UUID": "com.devbloom.ai-usage",
+  "Version": "1.3.1.0",
+  "Author": "Devbloom",
+  "Description": "Live Claude and Codex usage on a key: 5-hour session window, weekly cap, time to reset, and a colour-coded warning as you approach the limit. Press to peek at reset times. Includes keys that launch Claude or Codex in the focused terminal, and a key that reports how many Claude Code sessions are waiting for input, processing, or idle.",
+  "Category": "AI Usage",
+  "CategoryIcon": "imgs/plugin/category-icon",
+  "Icon": "imgs/plugin/marketplace",
+  "URL": "https://github.com/dev-bloom/ai-usage-streamdeck",
+  "CodePath": "bin/plugin.js",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "6.5"
+  },
+  "OS": [
+    {
+      "Platform": "mac",
+      "MinimumVersion": "12"
+    }
+  ],
+  "Nodejs": {
+    "Version": "20",
+    "Debug": "enabled"
+  },
+  "Actions": [
+    {
+      "Name": "Claude Usage",
+      "UUID": "com.devbloom.ai-usage.meter",
+      "Icon": "imgs/actions/meter/icon",
+      "Tooltip": "Shows your Claude 5-hour and weekly usage.",
+      "PropertyInspectorPath": "ui/meter.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/meter/key",
+          "TitleAlignment": "middle",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Launch Claude",
+      "UUID": "com.devbloom.ai-usage.launch",
+      "Icon": "imgs/actions/launch/icon",
+      "Tooltip": "Types a Claude command into the focused terminal, and refuses if the focused app is not one.",
+      "PropertyInspectorPath": "ui/launch.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/launch/key",
+          "TitleAlignment": "middle",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Codex Usage",
+      "UUID": "com.devbloom.ai-usage.codex-meter",
+      "Icon": "imgs/actions/codex-meter/icon",
+      "Tooltip": "Shows your Codex 5-hour and weekly usage.",
+      "PropertyInspectorPath": "ui/codex-meter.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/codex-meter/key",
+          "TitleAlignment": "middle",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Launch Codex",
+      "UUID": "com.devbloom.ai-usage.codex-launch",
+      "Icon": "imgs/actions/codex-launch/icon",
+      "Tooltip": "Types a Codex command into the focused terminal, and refuses if the focused app is not one.",
+      "PropertyInspectorPath": "ui/codex-launch.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/codex-launch/key",
+          "TitleAlignment": "middle",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Claude Sessions",
+      "UUID": "com.devbloom.ai-usage.sessions",
+      "Icon": "imgs/actions/sessions/icon",
+      "Tooltip": "Shows how many Claude Code sessions are waiting for input, running, or idle.",
+      "PropertyInspectorPath": "ui/sessions.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/sessions/key",
+          "TitleAlignment": "middle",
+          "ShowTitle": false
+        }
+      ]
+    }
+  ]
+}

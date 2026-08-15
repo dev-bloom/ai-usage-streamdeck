@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const pagePath = resolve(here, "..", "com.alejo.claude-usage.sdPlugin", "ui", "meter.html");
+const pagePath = resolve(here, "..", "com.devbloom.ai-usage.sdPlugin", "ui", "meter.html");
 
 let browser;
 let page;
@@ -58,7 +58,7 @@ before(async () => {
             data: JSON.stringify({
               event: "didReceiveSettings",
               context: "ctx",
-              action: "com.alejo.claude-usage.meter",
+              action: "com.devbloom.ai-usage.meter",
               payload: { settings, coordinates: { column: 0, row: 0 }, isInMultiAction: false },
             }),
           });
@@ -75,7 +75,7 @@ before(async () => {
           window.connectElgatoStreamDeckSocket?.(
             28196, "ctx", "registerPropertyInspector",
             JSON.stringify({ application: { platform: "mac" } }),
-            JSON.stringify({ action: "com.alejo.claude-usage.meter", context: "ctx", payload: { settings } }),
+            JSON.stringify({ action: "com.devbloom.ai-usage.meter", context: "ctx", payload: { settings } }),
           ),
         30,
       ),

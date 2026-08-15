@@ -12,6 +12,7 @@ import streamDeck, {
 
 import { renderKey } from "../lib/render.js";
 import {
+  CODEX_DEFAULT_COMMAND,
   DEFAULT_COMMAND,
   buildDeliveryScript,
   buildFrontmostScript,
@@ -38,13 +39,19 @@ const OSASCRIPT = "/usr/bin/osascript";
 // keeps a stuck press from leaving the key showing "SENT" forever.
 const OSASCRIPT_TIMEOUT_MS = 8000;
 
-const idleFace = () => renderKey({ kind: "message", title: "CLAUDE", subtitle: "skip perms" });
 const sentFace = () => renderKey({ kind: "message", title: "SENT", tone: "neutral" });
 const refusedFace = () => renderKey({ kind: "message", title: "NOT A", subtitle: "TERMINAL", tone: "warn" });
 const failedFace = () => renderKey({ kind: "message", title: "FAILED", subtitle: "see logs", tone: "crit" });
 
-@action({ UUID: "com.alejo.claude-usage.launch" })
-export class LaunchClaude extends SingletonAction<LaunchSettings> {
+/**
+ * Shared logic behind both launch actions. Not decorated with `@action`
+ * itself; each concrete subclass supplies its own default command and idle
+ * face so this class never has to branch on which CLI it's launching.
+ */
+abstract class LaunchBase extends SingletonAction<LaunchSettings> {
+  protected abstract readonly defaultCommand: string;
+  protected abstract idleFace(): string;
+
   /** Latest settings per visible key, so a press can read them without a round trip. */
   private readonly settings = new Map<string, LaunchSettings>();
   /**
@@ -56,12 +63,12 @@ export class LaunchClaude extends SingletonAction<LaunchSettings> {
 
   override onWillAppear(ev: WillAppearEvent<LaunchSettings>): void {
     this.settings.set(ev.action.id, ev.payload.settings ?? {});
-    void ev.action.setImage(idleFace());
+    void ev.action.setImage(this.idleFace());
   }
 
   override onDidReceiveSettings(ev: DidReceiveSettingsEvent<LaunchSettings>): void {
     this.settings.set(ev.action.id, ev.payload.settings ?? {});
-    void ev.action.setImage(idleFace());
+    void ev.action.setImage(this.idleFace());
   }
 
   override onWillDisappear(ev: WillDisappearEvent<LaunchSettings>): void {
@@ -81,7 +88,7 @@ export class LaunchClaude extends SingletonAction<LaunchSettings> {
   override async onKeyDown(ev: KeyDownEvent<LaunchSettings>): Promise<void> {
     const id = ev.action.id;
     const settings = this.settings.get(id) ?? {};
-    const command = settings.command || DEFAULT_COMMAND;
+    const command = settings.command || this.defaultCommand;
     const pressEnter = settings.pressEnter !== false;
     const allowEditors = settings.allowEditors === true;
 
@@ -132,8 +139,34 @@ export class LaunchClaude extends SingletonAction<LaunchSettings> {
       id,
       setTimeout(() => {
         this.reverts.delete(id);
-        void ev.action.setImage(idleFace());
+        void ev.action.setImage(this.idleFace());
       }, ms),
     );
+  }
+}
+
+// This UUID was rebranded once, deliberately, to its current value while
+// this plugin had exactly one installation (the author's) — so no existing
+// keybinding broke. It is now frozen for the same reason the old identifier
+// was: Stream Deck matches an installed action back to a key already on
+// someone's deck, so changing it again would make every existing user's key
+// vanish on upgrade.
+@action({ UUID: "com.devbloom.ai-usage.launch" })
+export class LaunchClaude extends LaunchBase {
+  protected readonly defaultCommand = DEFAULT_COMMAND;
+  protected idleFace(): string {
+    return renderKey({ kind: "message", title: "CLAUDE", subtitle: "skip perms" });
+  }
+}
+
+@action({ UUID: "com.devbloom.ai-usage.codex-launch" })
+export class LaunchCodex extends LaunchBase {
+  protected readonly defaultCommand = CODEX_DEFAULT_COMMAND;
+  protected idleFace(): string {
+    // No "skip perms" subtitle here: unlike Claude's default command, the
+    // Codex default carries no verified permission-bypass flag (see
+    // CODEX_DEFAULT_COMMAND in terminal.ts), so that subtitle would promise
+    // something this key doesn't actually do out of the box.
+    return renderKey({ kind: "message", title: "CODEX" });
   }
 }

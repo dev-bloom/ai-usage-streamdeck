@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Claude Sessions</title>
+    <!-- Bundled rather than loaded from the CDN so the panel still works offline
+         and cannot change under us. sdpi-components v4. -->
+    <script src="sdpi-components.js"></script>
+    <style>
+      .hint {
+        color: #969696;
+        font-size: 9pt;
+        line-height: 1.45;
+        margin: 4px 0 10px 0;
+        padding: 0 8px;
+      }
+      .hint code {
+        background: #3d3d3d;
+        border-radius: 3px;
+        padding: 0 3px;
+      }
+
+      /* sdpi-item lays its slotted content out as a plain block, so wrapping
+         the slider and its readout in one row is the only way to get them
+         side by side without reaching into the component's shadow DOM. */
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        /* Keep the readout clear of the panel edge and of the scrollbar that
+           appears once the settings list grows. */
+        padding-right: 6px;
+      }
+      .row sdpi-range {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .readout {
+        flex: 0 0 auto;
+        min-width: 44px;
+        text-align: right;
+        font-size: 9pt;
+        font-weight: 600;
+        /* Digits keep their column as the value changes, so the readout does
+           not jitter while you drag. */
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <sdpi-item label="Show">
+      <sdpi-select setting="mode" default="all">
+        <option value="all">All three</option>
+        <option value="waiting">Waiting only</option>
+        <option value="processing">Running only</option>
+        <option value="idle">Idle only</option>
+      </sdpi-select>
+    </sdpi-item>
+
+    <sdpi-item label="Hold to focus">
+      <div class="row">
+        <sdpi-range id="longPress" setting="longPressMs" default="300" min="200" max="1000" step="50"></sdpi-range>
+        <span class="readout" id="longPressOut">300 ms</span>
+      </div>
+    </sdpi-item>
+
+    <p class="hint">
+      Picking one bucket here only changes which count the key spends its face on when
+      there is nothing wrong to report. The key still shows <code>UNKNOWN STATUS</code>,
+      <code>NO REGISTRY</code>, or <code>UNREADABLE</code> whenever one of those occurs,
+      no matter which bucket is selected — this setting is a display preference, not a
+      filter on whether the data can be trusted.
+    </p>
+
+    <p class="hint">
+      Press the key to peek at the sessions behind the number on screen; it reverts after
+      a few seconds. With "All three" selected, pressing peeks at every session, same as
+      today. With one bucket selected, pressing peeks at only that bucket's sessions — and
+      says so, rather than listing anything else, if none are currently in it.
+    </p>
+
+    <p class="hint">
+      Hold the key to focus the terminal window of the first matching session — the same
+      session a peek would list first. With "All three" selected, that's the first session
+      overall, waiting before running before idle; with one bucket selected, it's that
+      bucket's first session. If nothing matches, the key briefly says so instead of doing
+      nothing.
+    </p>
+
+    <p class="hint">
+      A shorter hold feels snappier, but set it too low and an ordinary tap gets read as a
+      hold — which pulls a window to the front instead of just peeking.
+    </p>
+
+    <p class="hint">
+      Focusing is exact only for <code>Terminal.app</code>, which can be steered to the
+      specific tab. For VS Code and Cursor, only the app itself is brought to the front — macOS
+      does not expose a way to select its integrated terminal pane, so the key says
+      <code>RAISED</code> rather than claiming it found the exact one.
+    </p>
+
+    <script>
+      (function () {
+        const el = document.getElementById("longPress");
+        const out = document.getElementById("longPressOut");
+        if (!el || !out) return;
+
+        const paint = (v) => {
+          const n = Number(v);
+          out.textContent = `${Number.isFinite(n) ? n : 300} ms`;
+        };
+
+        // Fires when the component's value settles — on release, and again
+        // when the persisted setting arrives from the Stream Deck.
+        el.addEventListener("valuechange", () => paint(el.value));
+
+        // The component only commits on `change`, which for a range input
+        // means mouse-up. Listening to the inner input as well makes the
+        // number track the thumb while you drag. Guarded because it reaches
+        // into the component's shadow DOM, which is not part of its API.
+        try {
+          const inner = el.shadowRoot && el.shadowRoot.querySelector("input");
+          if (inner) inner.addEventListener("input", (e) => paint(e.target.value));
+        } catch {
+          /* live tracking is a nicety; the valuechange listener still works */
+        }
+
+        paint(el.value ?? 300);
+
+        // The persisted value arrives asynchronously over the websocket.
+        // Repaint once it lands, in case it was set before the listener
+        // above attached.
+        if (window.SDPIComponents?.streamDeckClient) {
+          SDPIComponents.streamDeckClient
+            .getSettings()
+            .then(({ settings }) => {
+              if (settings && settings.longPressMs !== undefined) paint(settings.longPressMs);
+            })
+            .catch(() => {
+              /* no connection in a standalone preview; default already shown */
+            });
+        }
+      })();
+    </script>
+  </body>
+</html>

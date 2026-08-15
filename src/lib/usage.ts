@@ -2,10 +2,15 @@ import { readCredentials, CredentialsError, type Credentials } from "./credentia
 import { clamp, parseRepresentativeClaim, type BindingWindow } from "./format.js";
 
 export type UsageSnapshot = {
-  /** 0..100 utilisation of the rolling 5-hour session window. */
-  sessionPct: number;
-  /** 0..100 utilisation of the 7-day cap. */
-  weeklyPct: number;
+  /**
+   * 0..100 utilisation of the rolling 5-hour session window, or null when
+   * this provider does not report that window at all (e.g. Codex's
+   * secondary_window, which is frequently absent). Null is not the same as
+   * 0 — 0 is an observed reading, null means no reading was taken.
+   */
+  sessionPct: number | null;
+  /** 0..100 utilisation of the 7-day cap, or null — see sessionPct. */
+  weeklyPct: number | null;
   sessionResetAt: Date | null;
   weeklyResetAt: Date | null;
   fetchedAt: Date;
@@ -22,7 +27,28 @@ export type UsageFailure =
   | { kind: "signed-out"; message: string }
   /** Credentials exist but the access token has expired; running `claude` fixes it. */
   | { kind: "stale"; message: string }
-  /** Network, API, or parsing problem. */
+  /**
+   * Credentials are a bare API key, not a ChatGPT/Claude subscription login.
+   * An API key has no session/weekly limits behind it, so there is nothing
+   * this key could ever report — distinct from `error` because retrying,
+   * signing in again, or checking the network all do nothing here.
+   */
+  | { kind: "no-plan"; message: string }
+  /**
+   * HTTP 403. Kept apart from `signed-out`/`stale` on purpose: a 403 reads
+   * exactly like a rejected credential but isn't one (seen from Cloudflare
+   * sitting in front of Codex's usage endpoint), and folding it into `error`
+   * would send a signed-in user hunting for a login problem that isn't there.
+   */
+  | { kind: "blocked"; message: string }
+  /**
+   * DNS failure, connection refused/reset, or the request timing out — the
+   * user's network, not the plugin or their credentials. Kept apart from
+   * `error` so the card can say "no network" instead of "see logs" and send
+   * someone digging through a log file for a problem that isn't in it.
+   */
+  | { kind: "offline"; message: string }
+  /** Network, API, or parsing problem that doesn't fit a more specific kind above. */
   | { kind: "error"; message: string };
 
 export class UsageError extends Error {

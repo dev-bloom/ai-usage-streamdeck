@@ -5,7 +5,7 @@
  * is worth drawing.
  */
 
-export type Sample = { at: number; sessionPct: number; weeklyPct: number };
+export type Sample = { at: number; sessionPct: number | null; weeklyPct: number | null };
 export type BurnWindow = "session" | "weekly";
 
 export const MAX_SAMPLES = 40;
@@ -21,7 +21,7 @@ export const MIN_SPAN_MS = 120_000; // 2 minutes
  */
 export function recordSample(
   history: Sample[],
-  snapshot: { sessionPct: number; weeklyPct: number },
+  snapshot: { sessionPct: number | null; weeklyPct: number | null },
   at: number,
 ): Sample[] {
   const appended: Sample[] = [
@@ -52,6 +52,13 @@ export function burnRatePerHour(history: Sample[], window: BurnWindow): number |
 
   const oldestPct = window === "session" ? oldest.sessionPct : oldest.weeklyPct;
   const newestPct = window === "session" ? newest.sessionPct : newest.weeklyPct;
+  // A provider that doesn't report this window at all (Codex's
+  // secondary_window, typically) leaves pct null on every sample. There is
+  // no rate to compute from a window that was never observed, and treating
+  // null as 0 would fabricate a slope — usually a steep, wrong one — out of
+  // missing data.
+  if (oldestPct === null || newestPct === null) return null;
+
   const spanHours = spanMs / 3_600_000;
   return (newestPct - oldestPct) / spanHours;
 }
@@ -63,10 +70,15 @@ export function burnRatePerHour(history: Sample[], window: BurnWindow): number |
 export function projectHoursToFull(
   history: Sample[],
   window: BurnWindow,
-  currentPct: number,
+  currentPct: number | null,
   resetAt: Date | null,
   now: Date,
 ): number | null {
+  // Nothing to project towards when the provider isn't reporting this
+  // window at all — there is no "currently at" value, so there is no "fills
+  // in" claim to make either.
+  if (currentPct === null) return null;
+
   const rate = burnRatePerHour(history, window);
   if (rate === null) return null;
 

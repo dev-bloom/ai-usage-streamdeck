@@ -12,7 +12,7 @@ import os
 import math
 import cairosvg
 
-ROOT = os.path.join(os.path.dirname(__file__), "..", "com.alejo.claude-usage.sdPlugin", "imgs")
+ROOT = os.path.join(os.path.dirname(__file__), "..", "com.devbloom.ai-usage.sdPlugin", "imgs")
 CORAL = "#d97757"
 TRACK = "#3a3a46"
 BG = "#0d0d11"

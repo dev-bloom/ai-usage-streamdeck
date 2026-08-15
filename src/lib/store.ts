@@ -1,5 +1,6 @@
 import { recordSample, type Sample } from "./burn.js";
-import { fetchUsage, UsageError, type UsageFailure, type UsageSnapshot } from "./usage.js";
+import { claudeProvider, codexProvider, type Provider } from "./providers/index.js";
+import { UsageError, type UsageFailure, type UsageSnapshot } from "./usage.js";
 
 export type StoreState =
   | { status: "loading" }
@@ -19,16 +20,24 @@ const MIN_INTERVAL_SECONDS = 15;
 const MAX_INTERVAL_SECONDS = 3600;
 
 /**
- * A single shared poller behind every key.
+ * A single shared poller behind every key of one provider.
  *
- * Two keys showing session and weekly usage should cost one API probe, not
- * two, so instances subscribe here rather than each running their own timer.
- * The timer only runs while at least one key is on screen — Stream Deck
- * profiles switch constantly, and a plugin that keeps probing for a key
- * nobody can see is both wasteful and (because a probe counts as activity)
- * quietly misleading about your session window.
+ * Two keys showing session and weekly usage for the same provider should
+ * cost one fetch, not two, so instances subscribe here rather than each
+ * running their own timer. The timer only runs while at least one key is on
+ * screen — Stream Deck profiles switch constantly, and a plugin that keeps
+ * polling for a key nobody can see is wasteful, and for Claude specifically
+ * (whose probe counts as activity) quietly misleading about your session
+ * window.
+ *
+ * Parameterised by Provider, one instance per provider (see claudeStore /
+ * codexStore below), so the two poll completely independently: a Codex
+ * outage or a signed-out Codex CLI can never blank a Claude key, and vice
+ * versa.
  */
-class UsageStore {
+export class UsageStore {
+  /** Exposed so an action can read provider-specific copy (see signInHint in view.ts). */
+  readonly provider: Provider;
   private subscribers = new Set<Subscriber>();
   private timer: NodeJS.Timeout | undefined;
   private state: StoreState = { status: "loading" };
@@ -38,6 +47,35 @@ class UsageStore {
 
   private intervalSeconds = 60;
   private allowRefresh = false;
+
+  /**
+   * The most recently logged failure message, so a failure that repeats
+   * every poll is written once, not once per tick. Cleared on the next
+   * successful fetch so a *recurrence* of the same message after a recovery
+   * is logged again rather than staying silenced forever.
+   */
+  private lastLoggedFailureMessage: string | undefined;
+
+  /**
+   * Called at most once per distinct failure message (see
+   * `lastLoggedFailureMessage`). Optional and settable after construction —
+   * left unset, failures are simply never logged, which is what every
+   * existing unit test against UsageStore expects.
+   *
+   * store.ts stays free of Stream Deck imports on purpose (see the class
+   * comment above) so it can be unit-tested directly; wiring this from
+   * meter.ts, which already imports the SDK for `streamDeck.logger`, is what
+   * lets the actual logging live behind that import instead of one being
+   * added here. Doing it here rather than in each subscriber's callback in
+   * meter.ts also gets cross-key dedupe for free: doFetch runs once per
+   * shared store no matter how many keys are subscribed, so this fires once
+   * per failure regardless of how many keys of that provider are on screen.
+   */
+  onFailure: ((failure: UsageFailure) => void) | undefined;
+
+  constructor(provider: Provider) {
+    this.provider = provider;
+  }
 
   subscribe(fn: Subscriber): () => void {
     this.subscribers.add(fn);
@@ -101,11 +139,14 @@ class UsageStore {
   private async doFetch(): Promise<void> {
     this.lastFetchAt = Date.now();
     try {
-      const snapshot = await fetchUsage(this.allowRefresh);
+      const snapshot = await this.provider.fetchUsage({ allowRefresh: this.allowRefresh });
       // Only a successful probe observed anything worth recording — a failed
       // one tells us nothing about the trend, so it must not be sampled.
       this.history = recordSample(this.history, snapshot, snapshot.fetchedAt.getTime());
       this.state = { status: "ok", snapshot, history: this.history };
+      // Re-arm logging: a failure that shows up again after a recovery is a
+      // new thing to know about, not a continuation of the last one.
+      this.lastLoggedFailureMessage = undefined;
     } catch (e) {
       const failure: UsageFailure =
         e instanceof UsageError
@@ -117,6 +158,14 @@ class UsageStore {
         : this.state.status === "fail" ? this.state.lastGood
         : undefined;
       this.state = { status: "fail", failure, lastGood, history: this.history };
+      // One store instance is shared by every visible key of this provider
+      // (see the class comment), so this runs once per failure no matter how
+      // many keys are subscribed — logging here, rather than per-subscriber
+      // in meter.ts, is what keeps two keys from writing the same line twice.
+      if (failure.message !== this.lastLoggedFailureMessage) {
+        this.lastLoggedFailureMessage = failure.message;
+        this.onFailure?.(failure);
+      }
     }
     this.emit();
   }
@@ -137,4 +186,5 @@ function clampInterval(seconds: number | undefined): number {
   return Math.max(MIN_INTERVAL_SECONDS, Math.min(MAX_INTERVAL_SECONDS, Math.round(seconds)));
 }
 
-export const usageStore = new UsageStore();
+export const claudeStore = new UsageStore(claudeProvider);
+export const codexStore = new UsageStore(codexProvider);

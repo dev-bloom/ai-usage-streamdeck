@@ -78,6 +78,27 @@ describe("burnRatePerHour", () => {
     ];
     assert.equal(burnRatePerHour(history, "session"), -10);
   });
+
+  it("returns null rather than a rate when either sample's pct is null", () => {
+    // A provider that never reports this window (Codex's secondary_window)
+    // leaves every sample null; there is no rate to compute from data that
+    // was never observed, and treating null as 0 would fabricate a slope.
+    const oldestMissing = [
+      { at: 0, sessionPct: null, weeklyPct: 40 },
+      { at: 2 * 60 * 60 * 1000, sessionPct: 30, weeklyPct: 20 },
+    ];
+    assert.equal(burnRatePerHour(oldestMissing, "session"), null);
+
+    const newestMissing = [
+      { at: 0, sessionPct: 30, weeklyPct: 40 },
+      { at: 2 * 60 * 60 * 1000, sessionPct: null, weeklyPct: 20 },
+    ];
+    assert.equal(burnRatePerHour(newestMissing, "session"), null);
+
+    // The other window still computes fine — nulls in one window must not
+    // poison the other.
+    assert.equal(burnRatePerHour(oldestMissing, "weekly"), -10);
+  });
 });
 
 describe("projectHoursToFull", () => {
@@ -120,6 +141,16 @@ describe("projectHoursToFull", () => {
 
     // Also correct with no known reset time at all.
     assert.equal(projectHoursToFull(history, "session", 50, null, now), 10);
+  });
+
+  it("returns null when currentPct itself is null, without even looking at the rate", () => {
+    // Nothing to project towards when the provider isn't reporting this
+    // window — there is no "currently at" value, so no "fills in Xh" claim.
+    const growing = [
+      { at: 0, sessionPct: 40, weeklyPct: 40 },
+      { at: 2 * 60 * 60 * 1000, sessionPct: 50, weeklyPct: 50 },
+    ];
+    assert.equal(projectHoursToFull(growing, "session", null, null, now), null);
   });
 });
 

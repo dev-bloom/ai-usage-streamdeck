@@ -102,6 +102,21 @@ describe("effectiveSeverity", () => {
       );
     }
   });
+
+  it("has no local threshold band for a null pct and falls back to status alone", () => {
+    // A provider that doesn't report this window (Codex's secondary_window)
+    // still lets the provider's own status escalate the key.
+    assert.equal(effectiveSeverity(null, DEFAULT_THRESHOLDS, "limit_reached"), "crit");
+    assert.equal(effectiveSeverity(null, DEFAULT_THRESHOLDS, "allowed"), "ok");
+  });
+
+  it("returns null, never 'ok', when both pct and status are missing", () => {
+    // "ok" would claim a fact ("this is fine") that was never actually
+    // observed — a null percentage with no status opinion means "unknown",
+    // not "known and fine".
+    assert.equal(effectiveSeverity(null, DEFAULT_THRESHOLDS, null), null);
+    assert.equal(effectiveSeverity(null, DEFAULT_THRESHOLDS, undefined), null);
+  });
 });
 
 describe("binding-window emphasis on the combined face", () => {

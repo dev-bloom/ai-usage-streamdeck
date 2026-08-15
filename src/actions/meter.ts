@@ -8,7 +8,7 @@ import streamDeck, {
 } from "@elgato/streamdeck";
 
 import { renderKey } from "../lib/render.js";
-import { usageStore, type StoreState } from "../lib/store.js";
+import { claudeStore, codexStore, type StoreState, type UsageStore } from "../lib/store.js";
 import { viewFor, type MeterSettings } from "../lib/view.js";
 
 export type { MeterSettings };
@@ -18,8 +18,28 @@ const logger = streamDeck.logger.createScope("meter");
 /** How long a peek at the resets screen stays up before reverting. */
 const PEEK_MS = 4000;
 
-@action({ UUID: "com.alejo.claude-usage.meter" })
-export class UsageMeter extends SingletonAction<MeterSettings> {
+// A card that says "see logs" is a promise, and until this line existed
+// nothing kept it: store.ts records every failure in its `state` but had no
+// way to write to disk, since it deliberately imports nothing from the SDK
+// (see the class comment on UsageStore) so it stays testable without one.
+// Wiring UsageStore.onFailure here, where streamDeck.logger already exists,
+// keeps that constraint intact while making "see logs" true. The provider
+// name is included because both meters now share one log file.
+for (const store of [claudeStore, codexStore]) {
+  store.onFailure = (failure) => {
+    logger.error(`[${store.provider.label}] ${failure.kind}: ${failure.message}`);
+  };
+}
+
+/**
+ * Shared logic behind every usage-meter action, whichever provider it
+ * polls. Not itself decorated with `@action` — Stream Deck needs a concrete
+ * UUID per key type, and each concrete subclass below supplies its own
+ * store instance so this class never has to branch on which provider it is.
+ */
+abstract class UsageMeterBase extends SingletonAction<MeterSettings> {
+  protected abstract readonly store: UsageStore;
+
   /** Unsubscribe callbacks, keyed by action context id. */
   private readonly unsubscribes = new Map<string, () => void>();
   /** Latest settings per visible key, so a store update can repaint each one. */
@@ -46,7 +66,7 @@ export class UsageMeter extends SingletonAction<MeterSettings> {
     // switches can deliver one — which would otherwise leak a subscription.
     this.unsubscribes.get(id)?.();
 
-    const unsubscribe = usageStore.subscribe((state) => {
+    const unsubscribe = this.store.subscribe((state) => {
       this.lastState = state;
       void this.paint(ev.action, id, state);
     });
@@ -67,7 +87,7 @@ export class UsageMeter extends SingletonAction<MeterSettings> {
   override onDidReceiveSettings(ev: DidReceiveSettingsEvent<MeterSettings>): void {
     this.settings.set(ev.action.id, ev.payload.settings ?? {});
     this.applyConfig();
-    usageStore.refreshNow();
+    this.store.refreshNow();
   }
 
   /**
@@ -101,9 +121,9 @@ export class UsageMeter extends SingletonAction<MeterSettings> {
    * relax an interval it had tightened.
    */
   private applyConfig(): void {
-    usageStore.resetConfig();
+    this.store.resetConfig();
     for (const s of this.settings.values()) {
-      usageStore.configure(s.intervalSeconds, s.allowRefresh);
+      this.store.configure(s.intervalSeconds, s.allowRefresh);
     }
   }
 
@@ -112,11 +132,42 @@ export class UsageMeter extends SingletonAction<MeterSettings> {
     id: string,
     state: StoreState,
   ): Promise<void> {
-    const settings = this.settings.get(id) ?? {};
+    const stored = this.settings.get(id) ?? {};
+    // Fall back to the provider's default when the user has never chosen, and
+    // also when their stored choice names a window this provider does not
+    // report — a Codex key carrying `mode: "both"` from before that was known
+    // would otherwise draw a dead row forever, since Stream Deck persists
+    // per-key settings and nothing else would ever clear it.
+    const { defaultMode, supportedModes } = this.store.provider;
+    const mode =
+      stored.mode !== undefined && supportedModes.includes(stored.mode)
+        ? stored.mode
+        : defaultMode;
+    const settings = { ...stored, mode };
     try {
-      await target.setImage(renderKey(viewFor(state, settings, this.peeking.has(id))));
+      await target.setImage(
+        renderKey(
+          viewFor(state, settings, this.peeking.has(id), new Date(), this.store.provider.signInHint),
+        ),
+      );
     } catch (e) {
       logger.error(`failed to paint key ${id}: ${(e as Error).message}`);
     }
   }
+}
+
+// This UUID was rebranded once, deliberately, to its current value while
+// this plugin had exactly one installation (the author's) — so no existing
+// keybinding broke. It is now frozen for the same reason the old identifier
+// was: Stream Deck matches an installed action back to a key already on
+// someone's deck, so changing it again would make every existing user's key
+// vanish on upgrade.
+@action({ UUID: "com.devbloom.ai-usage.meter" })
+export class UsageMeter extends UsageMeterBase {
+  protected readonly store = claudeStore;
+}
+
+@action({ UUID: "com.devbloom.ai-usage.codex-meter" })
+export class CodexUsageMeter extends UsageMeterBase {
+  protected readonly store = codexStore;
 }

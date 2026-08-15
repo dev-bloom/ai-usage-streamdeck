@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Launch Codex</title>
+    <!-- Bundled rather than loaded from the CDN so the panel still works offline
+         and cannot change under us. sdpi-components v4. -->
+    <script src="sdpi-components.js"></script>
+    <style>
+      .hint {
+        color: #969696;
+        font-size: 9pt;
+        line-height: 1.45;
+        margin: 4px 0 10px 0;
+        padding: 0 8px;
+      }
+      .hint code {
+        background: #3d3d3d;
+        border-radius: 3px;
+        padding: 0 3px;
+      }
+      .hint.warn {
+        color: #f0a742;
+      }
+    </style>
+  </head>
+  <body>
+    <sdpi-item label="Command">
+      <sdpi-textfield setting="command" default="codex" placeholder="codex"></sdpi-textfield>
+    </sdpi-item>
+
+    <p class="hint">
+      Typed into the frontmost terminal on press. Defaults to plain <code>codex</code> — leave
+      the box empty to keep that default. Append your own flags here if you want them; none
+      are assumed for you.
+    </p>
+
+    <p class="hint">
+      That default only works if a <code>codex</code> CLI is on your shell's <code>PATH</code>.
+      If it isn't — a standalone <code>@openai/codex</code> npm install can fail this way, and
+      currently does on the machine this plugin was built on — a working binary already exists
+      inside the ChatGPT desktop app. Put its full path in this box instead:
+    </p>
+    <p class="hint"><code>/Applications/ChatGPT.app/Contents/Resources/codex</code></p>
+    <p class="hint">
+      optionally followed by <code>--dangerously-bypass-approvals-and-sandbox</code> to skip
+      confirmation prompts and sandboxing — verified from that binary's own
+      <code>--help</code>, not guessed, and exactly as dangerous as it sounds. That path reaches
+      inside an app bundle, so a major ChatGPT.app update can move or rename it; the plain
+      <code>codex</code> default is what to use once a standalone CLI is actually on
+      <code>PATH</code>.
+    </p>
+
+    <sdpi-item label="On press">
+      <sdpi-checkbox setting="pressEnter" label="Run the command (press Enter)" default="true"></sdpi-checkbox>
+    </sdpi-item>
+
+    <p class="hint">
+      On, the command runs immediately. Off, it is only typed — you press Enter yourself,
+      which is a safer way to try a new command for the first time.
+    </p>
+
+    <sdpi-item label="Terminal guard">
+      <sdpi-checkbox setting="allowEditors" label="Allow VS Code / Cursor"></sdpi-checkbox>
+    </sdpi-item>
+
+    <p class="hint warn">
+      Off by default. This key always refuses to type into an app it cannot identify as a
+      terminal. macOS cannot tell whether VS Code's or Cursor's integrated terminal panel or
+      an ordinary source file has focus — only that the editor itself is frontmost — so
+      turning this on means a press can type a shell command into whatever file you were
+      last editing.
+    </p>
+
+    <p class="hint">
+      The first press asks macOS for permission (Automation for Terminal/iTerm, Accessibility
+      for everything else). Accept the prompt; it is only asked once per app.
+    </p>
+  </body>
+</html>

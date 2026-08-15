@@ -139,19 +139,30 @@ export function parseRepresentativeClaim(raw: string | null | undefined): Bindin
 
 /**
  * The severity actually shown on a key: the more severe of the user's local
- * threshold band and Anthropic's own status for that window.
+ * threshold band and the provider's own status for that window.
  *
  * The API's status is authoritative about what will actually be enforced,
  * but the user's sliders exist precisely so they can be warned EARLIER than
- * Anthropic would warn them. Taking the more severe of the two honours both
- * — the key is never less alarming than either source thinks it should be.
- * Never take only one: that would either ignore the user's own warning
- * preference or ignore what Anthropic is about to do.
+ * the provider would warn them. Taking the more severe of the two honours
+ * both — the key is never less alarming than either source thinks it should
+ * be. Never take only one: that would either ignore the user's own warning
+ * preference or ignore what the provider is about to do.
+ *
+ * `pct` is nullable because some providers don't report every window (Codex
+ * leaves `secondary_window` out entirely rather than reporting it at 0). A
+ * null pct has no threshold band to compare against, so this falls back to
+ * the provider's status alone — and if that has no opinion either, the
+ * result is null, not "ok": "ok" would claim a fact ("this is fine") the
+ * caller never actually observed. Every existing call site passed a number
+ * before this change, so Claude's output is bit-for-bit unchanged.
  */
 export function effectiveSeverity(
-  pct: number,
+  pct: number | null,
   t: Thresholds,
   status: string | null | undefined,
-): Severity {
-  return mostSevere(severityFromStatus(status), severityFor(pct, t));
+): Severity | null {
+  const fromStatus = severityFromStatus(status);
+  const fromPct = pct === null ? null : severityFor(pct, t);
+  if (fromStatus === null && fromPct === null) return null;
+  return mostSevere(fromStatus, fromPct);
 }

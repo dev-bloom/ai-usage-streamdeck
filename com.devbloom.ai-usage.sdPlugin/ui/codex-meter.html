@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Claude Usage</title>
+    <title>Codex Usage</title>
     <!-- Bundled rather than loaded from the CDN so the panel still works offline
          and cannot change under us. sdpi-components v4. -->
     <script src="sdpi-components.js"></script>
@@ -52,18 +52,59 @@
     </style>
   </head>
   <body>
-    <sdpi-item label="Show">
-      <sdpi-select setting="mode" default="both">
-        <option value="both">Both windows</option>
-        <option value="session">5-hour session</option>
-        <option value="weekly">Weekly cap</option>
-      </sdpi-select>
-    </sdpi-item>
+    <p class="hint">
+      <strong>Codex limits weekly only</strong>, so this key always shows the weekly cap and
+      there is nothing to choose. Measured three ways on a ChatGPT plan: the usage endpoint
+      returns <code>secondary_window: null</code> both before and after real token spend,
+      the responses endpoint sends <code>x-codex-secondary-window-minutes: 0</code>, and the
+      ChatGPT app's own &ldquo;Usage remaining&rdquo; menu lists a Weekly row and nothing
+      else. The Claude keys still offer a choice, because Claude reports two windows.
+    </p>
 
-    <p class="hint">Pressing the key cycles through these without opening this panel.</p>
+    <p class="hint">
+      Press the key to peek at when the window resets; it reverts after a few seconds.
+    </p>
+
+    <p class="hint">
+      If OpenAI adds a 5-hour window later, the plugin will read it — windows are matched by
+      their duration, not by the slot they arrive in — but this panel would need its selector
+      back to show it. An unreported window is drawn as <code>—</code>, never <code>0%</code>,
+      since a zero would claim the window exists and is empty.
+    </p>
+
+    <p class="hint">
+      <strong>Where this number comes from.</strong> The plugin reads
+      <code>~/.codex/auth.json</code> — the same file the Codex CLI and the ChatGPT desktop
+      app both write — and calls Codex's own usage endpoint with the access token stored
+      there. It only ever <em>reads</em> that file, never writes it: Codex owns it, and a lost
+      write race would sign you out of Codex itself, not just dim this key.
+    </p>
+
+    <p class="hint">
+      <strong>Signing in.</strong> Codex now ships inside the ChatGPT desktop app, so signing
+      in to Codex there is what puts credentials in that file. The standalone <code>codex</code>
+      CLI also works for this, if you have it installed.
+    </p>
+
+    <p class="hint">
+      <strong>SIGN IN</strong> — no Codex credentials found at all. Sign in to Codex from
+      inside the ChatGPT app (or run <code>codex</code> once, if installed).<br />
+      <strong>EXPIRED</strong> — credentials exist but the access token has aged out. Open the
+      ChatGPT app, which owns this file, and see whether it refreshes it; if the key is still
+      <code>EXPIRED</code> after that, sign out and back in to Codex inside the app (or run
+      <code>codex</code> once, if installed).<br />
+      <strong>API KEY</strong> — Codex is signed in with a bare <code>OPENAI_API_KEY</code>
+      instead of a ChatGPT login. That has no subscription limits to report, so this key never
+      will on an account like that — nothing to fix.<br />
+      <strong>BLOCKED</strong> — the usage endpoint's own edge network returned an HTTP 403.
+      Not a credentials problem, so signing in again will not fix it.<br />
+      <strong>OFFLINE</strong> — this machine's network, not Codex or your credentials, is the
+      problem.
+    </p>
 
     <sdpi-item label="Refresh every">
       <sdpi-select setting="intervalSeconds" default="60">
+        <option value="15">15 seconds</option>
         <option value="30">30 seconds</option>
         <option value="60">1 minute</option>
         <option value="120">2 minutes</option>
@@ -73,9 +114,10 @@
     </sdpi-item>
 
     <p class="hint">
-      Each refresh sends a one-token request to read your current limits. The cost is
-      negligible, but it does count as activity — so a fast interval will keep a 5-hour
-      window open even when you are not working. Polling stops whenever no key is on screen.
+      Unlike the Claude key, this reads a dedicated, read-only Codex usage endpoint rather
+      than spending a probe request — it costs nothing and does not touch your quota or your
+      session window, so a short interval here is harmless. Polling still stops whenever no
+      key is on screen.
     </p>
 
     <sdpi-item label="Amber above">
@@ -93,16 +135,19 @@
     </sdpi-item>
 
     <sdpi-item label="Advanced">
-      <sdpi-checkbox setting="allowRefresh" label="Auto-renew expired token"></sdpi-checkbox>
+      <p class="hint" style="margin-top: 0;">
+        There is no auto-renew toggle here, unlike the Claude meter's. Claude's opt-in refresh
+        works because Claude Code's OAuth client id is publicly known; no equivalent id for
+        Codex could be verified, and shipping a guessed one — and minting tokens against it —
+        is unacceptable. A Codex access token lasts roughly 10 days (measured from a real
+        token's own issued/expiry claims), so this costs little: if the key reads
+        <code>EXPIRED</code>, open the ChatGPT app — it owns <code>~/.codex/auth.json</code>
+        and is the thing to try first — or run <code>codex</code> once if the standalone CLI
+        works for you. Whether opening the app alone refreshes the stored token has not been
+        confirmed; if the key is still <code>EXPIRED</code> afterwards, sign out and back in
+        to Codex inside the app.
+      </p>
     </sdpi-item>
-
-    <p class="hint">
-      Off by default. The plugin normally only reads the token Claude Code has already
-      stored, so it can never disturb your CLI login; if that token expires it shows
-      <code>run claude</code> until you next use Claude Code. Turning this on lets the plugin
-      renew the token itself, which keeps the key live longer but carries a small chance of
-      requiring you to sign in to Claude Code again.
-    </p>
 
     <script>
       (function () {

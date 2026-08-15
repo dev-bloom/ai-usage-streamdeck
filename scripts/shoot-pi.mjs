@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const page = resolve(here, "..", "com.alejo.claude-usage.sdPlugin", "ui", "meter.html");
+const page = resolve(here, "..", "com.devbloom.ai-usage.sdPlugin", "ui", "meter.html");
 const out = process.argv[2] ?? "/tmp/pi.png";
 const settings = JSON.parse(process.argv[3] ?? '{"warnAt":65,"critAt":85,"mode":"both","intervalSeconds":"60"}');
 
@@ -34,7 +34,7 @@ await p.addInitScript((s) => {
           data: JSON.stringify({
             event: "didReceiveSettings",
             context: "ctx",
-            action: "com.alejo.claude-usage.meter",
+            action: "com.devbloom.ai-usage.meter",
             payload: { settings: s, coordinates: { column: 0, row: 0 }, isInMultiAction: false },
           }),
         });
@@ -50,7 +50,7 @@ await p.addInitScript((s) => {
       window.connectElgatoStreamDeckSocket?.(
         28196, "ctx", "registerPropertyInspector",
         JSON.stringify({ application: { platform: "mac" } }),
-        JSON.stringify({ action: "com.alejo.claude-usage.meter", context: "ctx", payload: { settings: s } }),
+        JSON.stringify({ action: "com.devbloom.ai-usage.meter", context: "ctx", payload: { settings: s } }),
       );
     }, 50);
   });

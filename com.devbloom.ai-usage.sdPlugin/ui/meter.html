@@ -1,0 +1,164 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Claude Usage</title>
+    <!-- Bundled rather than loaded from the CDN so the panel still works offline
+         and cannot change under us. sdpi-components v4. -->
+    <script src="sdpi-components.js"></script>
+    <style>
+      .hint {
+        color: #969696;
+        font-size: 9pt;
+        line-height: 1.45;
+        margin: 4px 0 10px 0;
+        padding: 0 8px;
+      }
+      .hint code {
+        background: #3d3d3d;
+        border-radius: 3px;
+        padding: 0 3px;
+      }
+
+      /* sdpi-item lays its slotted content out as a plain block, so wrapping
+         the slider and its readout in one row is the only way to get them
+         side by side without reaching into the component's shadow DOM. */
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        /* Keep the readout clear of the panel edge and of the scrollbar that
+           appears once the settings list grows. */
+        padding-right: 6px;
+      }
+      .row sdpi-range {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .readout {
+        flex: 0 0 auto;
+        min-width: 34px;
+        text-align: right;
+        font-size: 9pt;
+        font-weight: 600;
+        /* Digits keep their column as the value changes, so the readout does
+           not jitter while you drag. */
+        font-variant-numeric: tabular-nums;
+      }
+      /* Tint each readout the colour that threshold actually produces on the
+         key, so the settings panel reads as part of the same design. */
+      #warnOut { color: #fbbf24; }
+      #critOut { color: #f87171; }
+    </style>
+  </head>
+  <body>
+    <sdpi-item label="Show">
+      <sdpi-select setting="mode" default="both">
+        <option value="both">Both windows</option>
+        <option value="session">5-hour session</option>
+        <option value="weekly">Weekly cap</option>
+      </sdpi-select>
+    </sdpi-item>
+
+    <p class="hint">
+      Press the key to peek at when each window resets; it reverts after a few seconds.
+      Pressing does not change this setting.
+    </p>
+
+    <sdpi-item label="Refresh every">
+      <sdpi-select setting="intervalSeconds" default="60">
+        <option value="30">30 seconds</option>
+        <option value="60">1 minute</option>
+        <option value="120">2 minutes</option>
+        <option value="300">5 minutes</option>
+        <option value="900">15 minutes</option>
+      </sdpi-select>
+    </sdpi-item>
+
+    <p class="hint">
+      Each refresh sends a one-token request to read your current limits. The cost is
+      negligible, but it does count as activity — so a fast interval will keep a 5-hour
+      window open even when you are not working. Polling stops whenever no key is on screen.
+    </p>
+
+    <sdpi-item label="Amber above">
+      <div class="row">
+        <sdpi-range id="warn" setting="warnAt" default="70" min="0" max="100" step="5"></sdpi-range>
+        <span class="readout" id="warnOut">70%</span>
+      </div>
+    </sdpi-item>
+
+    <sdpi-item label="Red above">
+      <div class="row">
+        <sdpi-range id="crit" setting="critAt" default="90" min="0" max="100" step="5"></sdpi-range>
+        <span class="readout" id="critOut">90%</span>
+      </div>
+    </sdpi-item>
+
+    <sdpi-item label="Advanced">
+      <sdpi-checkbox setting="allowRefresh" label="Auto-renew expired token"></sdpi-checkbox>
+    </sdpi-item>
+
+    <p class="hint">
+      Off by default. The plugin normally only reads the token Claude Code has already
+      stored, so it can never disturb your CLI login; if that token expires it shows
+      <code>run claude</code> until you next use Claude Code. Turning this on lets the plugin
+      renew the token itself, which keeps the key live longer but carries a small chance of
+      requiring you to sign in to Claude Code again.
+    </p>
+
+    <script>
+      (function () {
+        const pairs = [
+          { input: "warn", output: "warnOut", fallback: 70 },
+          { input: "crit", output: "critOut", fallback: 90 },
+        ];
+
+        for (const { input, output, fallback } of pairs) {
+          const el = document.getElementById(input);
+          const out = document.getElementById(output);
+          if (!el || !out) continue;
+
+          const paint = (v) => {
+            const n = Number(v);
+            out.textContent = `${Number.isFinite(n) ? n : fallback}%`;
+          };
+
+          // Fires when the component's value settles — on release, and again
+          // when the persisted setting arrives from the Stream Deck.
+          el.addEventListener("valuechange", () => paint(el.value));
+
+          // The component only commits on `change`, which for a range input
+          // means mouse-up. Listening to the inner input as well makes the
+          // number track the thumb while you drag. Guarded because it reaches
+          // into the component's shadow DOM, which is not part of its API.
+          try {
+            const inner = el.shadowRoot && el.shadowRoot.querySelector("input");
+            if (inner) inner.addEventListener("input", (e) => paint(e.target.value));
+          } catch {
+            /* live tracking is a nicety; the valuechange listener still works */
+          }
+
+          paint(el.value ?? fallback);
+        }
+
+        // The persisted values arrive asynchronously over the websocket. Repaint
+        // once they land, in case they were set before the listeners attached.
+        if (window.SDPIComponents?.streamDeckClient) {
+          SDPIComponents.streamDeckClient
+            .getSettings()
+            .then(({ settings }) => {
+              if (!settings) return;
+              const warnOut = document.getElementById("warnOut");
+              const critOut = document.getElementById("critOut");
+              if (warnOut && settings.warnAt !== undefined) warnOut.textContent = `${settings.warnAt}%`;
+              if (critOut && settings.critAt !== undefined) critOut.textContent = `${settings.critAt}%`;
+            })
+            .catch(() => {
+              /* no connection in a standalone preview; defaults already shown */
+            });
+        }
+      })();
+    </script>
+  </body>
+</html>

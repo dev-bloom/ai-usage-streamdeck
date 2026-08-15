@@ -19,6 +19,26 @@ export type TerminalKind = "terminal-app" | "iterm" | "keystroke" | "editor" | "
 export const DEFAULT_COMMAND = "claude --dangerously-skip-permissions";
 
 /**
+ * The command a fresh Codex launch key ships with: plain `codex`, no flags.
+ *
+ * Codex's permission-bypass flag is now verified — `--dangerously-bypass-
+ * approvals-and-sandbox` ("Skip all confirmation prompts and execute
+ * commands without sandboxing. EXTREMELY DANGEROUS."), read from `--help` on
+ * the Codex CLI bundled inside ChatGPT.app (`codex-cli 0.147.0-alpha.6.5`;
+ * see `ui/codex-launch.html` for where to find that binary). There is no
+ * `--yolo` alias in this build — checked, not assumed. The standalone
+ * `@openai/codex` npm install remains broken on this machine for unrelated
+ * reasons (see DEVELOPMENT.md), which is why that binary, not this one, was
+ * used to check the flag.
+ *
+ * The default here stays the bare command regardless: shipping a
+ * permission-bypass flag as a *default* risks silently disabling sandboxing
+ * for every user who never opens the property inspector, verified flag name
+ * or not. Users who want it can add it themselves in settings.
+ */
+export const CODEX_DEFAULT_COMMAND = "codex";
+
+/**
  * Escape a string for use inside an AppleScript double-quoted string
  * literal. Order matters: escape backslashes first, then double quotes.
  * Escaping quotes first would turn a literal backslash that precedes a quote
