@@ -127,14 +127,32 @@ five actions have these.
 
 ### Manifest — fields worth double-checking before submission
 
-- **`SDKVersion` is `2`, which is correct — nothing to decide.** An earlier
-  draft of this document claimed the schema recommended version 3 and listed
-  the allowed values as `enum: [2, 3]`. Both were wrong. The schema
-  (`node_modules/@elgato/schemas/streamdeck/plugins/manifest.json`) says
-  verbatim: *"Preferred SDK version; this should _currently_ always be 2"*,
-  and the only permitted value is `2`. Recorded here rather than quietly
-  deleted, because acting on the earlier claim would have meant changing a
-  correct value to an invalid one.
+- **`SDKVersion` is `2`, and this is the one thing blocking submission.**
+  The story is worth recording in full, because two plausible sources
+  disagree and each was trusted in turn:
+  - The **local schema** (`node_modules/@elgato/schemas/…/manifest.json`)
+    says verbatim *"Preferred SDK version; this should _currently_ always be
+    2"*, and permits only `2`. That package is stale.
+  - The **live Maker Console** rejects the upload with *"Minimum Manifest SDK
+    version must be 3 or later"*, alongside *"Minimum Stream Deck app version
+    must be 6.9 or later"*. DRM protection then enables itself; it was a
+    symptom of those two, not a third requirement.
+  - Setting `SDKVersion: 3` clears the console **and stops the plugin from
+    running**: `ERR_NOT_SUPPORTED: Manifest SDKVersion 3 requires
+    @elgato/streamdeck 2.0 or higher`. This plugin is on **1.4.1**.
+
+  So the manifest is deliberately back on `SDKVersion: 2` /
+  `Software.MinimumVersion: 6.5`: it runs, and it cannot be submitted.
+  **Submission is blocked on upgrading `@elgato/streamdeck` 1.4.1 → 2.1.1**,
+  a major bump touching `SingletonAction`, the event handlers and the
+  property-inspector plumbing across five actions. Do that first, verify the
+  plugin still loads, *then* raise `SDKVersion` and `MinimumVersion` together.
+
+  The lesson, since it cost two wrong turns: the console is the authority on
+  what Marketplace accepts, the installed library is the authority on what
+  runs, and a change has to satisfy both. Checking either one alone produced
+  a confident wrong answer.
+
 - **`Description`** in the current manifest already describes all five
   actions, sessions key included — consistent with the corrected decision to
   ship five actions in the store build. No change needed there on that count.
