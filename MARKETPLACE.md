@@ -1,5 +1,20 @@
 # Elgato Marketplace submission — AI Usage (Devbloom)
 
+## Where this stands (as of 2026-08-15)
+
+- **Maker account exists**: organization **Devbloom**, handle **@devbloom**, support link
+  pointing at the repo's GitHub Issues. The Maker Agreement is accepted.
+- **Stripe was skipped, deliberately.** Stripe does not operate in Colombia — it is absent
+  from their global availability list entirely, including the "Preview" tier. The Maker
+  Agreement §4.5 permits free products, and the console let the step be skipped. Note that
+  free is **one-way**: a product published free must remain free, so any future paid
+  Devbloom product has to launch paid.
+- **Submission is blocked** on the `SDKVersion` issue below — the upload is rejected on
+  SDKVersion 2, and SDKVersion 3 stops the plugin running on `@elgato/streamdeck` 1.4.1.
+- **Not yet done**: organization profile picture, store artwork (dimensions still unverified
+  — the listing form will state them), and listing steps 3-6 of the create-product flow.
+
+
 Working notes and draft copy for submitting this plugin to the Elgato Marketplace.
 Everything under "Listing copy" is written for a stranger who has never seen the
 plugin; everything after that is for whoever prepares the submission.
