@@ -266,6 +266,29 @@ await write(page, ROOT, "codex-meter/key", (s) => meterSvg(s, {
   fill: TEAL,
 }), 72);
 
+// Claude's meter, deliberately the same mark as Codex's in Claude's coral.
+// These were previously the only icons still coming from the dead icons.py,
+// which is why they were a different shape from everything else: a continuous
+// ring rather than the broken one. Same generator, same geometry, one colour
+// apart — the pairing is the point, and the two meters are told apart by
+// colour rather than silhouette. (A shape difference would separate them
+// harder at 20px; that was the earlier design and this replaces it on
+// request.)
+await write(page, ROOT, "meter/icon", (s) => meterSvg(s, {
+  strokeRatio: 0.19,
+  radiusRatio: 0.31,
+  track: TRACK_SMALL,
+  fill: CORAL,
+}), 20);
+
+await write(page, ROOT, "meter/key", (s) => meterSvg(s, {
+  bg: BG,
+  strokeRatio: 0.11,
+  radiusRatio: 0.33,
+  track: TRACK,
+  fill: CORAL,
+}), 72);
+
 await write(page, ROOT, "codex-launch/icon", launchSvg, 20);
 await write(page, ROOT, "codex-launch/key", launchSvg, 72);
 

@@ -60,6 +60,23 @@
       ]
     },
     {
+      "Name": "Claude Sessions",
+      "UUID": "com.devbloom.ai-usage.sessions",
+      "Icon": "imgs/actions/sessions/icon",
+      "Tooltip": "Shows how many Claude Code sessions are waiting for input, running, or idle.",
+      "PropertyInspectorPath": "ui/sessions.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/sessions/key",
+          "TitleAlignment": "middle",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
       "Name": "Codex Usage",
       "UUID": "com.devbloom.ai-usage.codex-meter",
       "Icon": "imgs/actions/codex-meter/icon",
@@ -88,23 +105,6 @@
       "States": [
         {
           "Image": "imgs/actions/codex-launch/key",
-          "TitleAlignment": "middle",
-          "ShowTitle": false
-        }
-      ]
-    },
-    {
-      "Name": "Claude Sessions",
-      "UUID": "com.devbloom.ai-usage.sessions",
-      "Icon": "imgs/actions/sessions/icon",
-      "Tooltip": "Shows how many Claude Code sessions are waiting for input, running, or idle.",
-      "PropertyInspectorPath": "ui/sessions.html",
-      "Controllers": [
-        "Keypad"
-      ],
-      "States": [
-        {
-          "Image": "imgs/actions/sessions/key",
           "TitleAlignment": "middle",
           "ShowTitle": false
         }
